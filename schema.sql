@@ -171,6 +171,14 @@ begin
   end loop;
 end $$;
 
+-- Only the owner adds managers (the Invite button in Settings). Restrictive,
+-- so it narrows the policy above rather than widening it. To hand this to
+-- someone else, change the address here and in js/config.js, then re-run.
+drop policy if exists managers_insert_owner on managers;
+create policy managers_insert_owner on managers
+  as restrictive for insert to authenticated
+  with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'justin@tosspizzeria.com');
+
 -- ---------------------------------------------------------------------------
 -- Seed data: the opening and closing checklists exactly as they read on the
 -- August 2026 South 1st sheet, plus default settings.

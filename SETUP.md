@@ -89,6 +89,12 @@ Do this signed in to Google as a tosspizzeria.com Workspace admin.
    yourself up as the first manager (name, initials, PIN). Add the other
    managers and the staff roster under **Settings** / **Staff**.
 
+**Inviting a manager:** Settings → Managers → **Invite a manager** (shown only
+to justin@tosspizzeria.com, and the database refuses anyone else adding a
+manager). Enter name, initials and their @tosspizzeria.com email; a PIN is
+filled in. It adds them and gives you a ready email — **Open in Gmail** sends
+it from your account.
+
 Managers just open the link and sign in with their own tosspizzeria.com Google
 account; each device remembers them. The PIN still picks who is on shift, so a
 shared bar tablet can stay signed in while managers swap with their PIN.

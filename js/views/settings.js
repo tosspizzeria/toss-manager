@@ -7,6 +7,11 @@ import { DEFAULT_FAVORITES } from '../games.js';
 import { matchStaff } from '../roster-match.js';
 import { store, isCloud, getConnection, setConnection, clearConnection, SETTINGS_SEED } from '../store.js';
 import { createManager, setManagerPin, signOutGoogle, signedInAs } from '../auth.js';
+import { ALLOWED_DOMAIN, OWNER_EMAIL, SITE_URL } from '../config.js';
+
+function randomPin() {
+  return String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, '0');
+}
 
 export async function renderSettings(ctx) {
   const root = clear(ctx.root);
@@ -15,6 +20,11 @@ export async function renderSettings(ctx) {
   const [managers, checklist] = await Promise.all([store().listManagers(), store().listChecklist()]);
   const conn = getConnection();
   const signedInEmail = await signedInAs();
+  // Inviting is the owner's alone. Signed in with Google, that means the
+  // owner's account; on a device-only install (no database) an admin PIN.
+  const isOwner = isCloud()
+    ? String(signedInEmail ?? '').toLowerCase() === OWNER_EMAIL
+    : Boolean(ctx.manager && managers.find((m) => m.id === ctx.manager.id)?.is_admin);
   const rerender = () => renderSettings(ctx);
 
   // ---------------------------------------------------------------- connection
@@ -106,41 +116,101 @@ export async function renderSettings(ctx) {
     }
     if (!managers.length) list.append(el('li', {}, el('p.hint', 'No managers yet.')));
 
+    return el('div.card', {},
+      el('div.card-head', {}, el('h2', 'Managers')),
+      el('div.card-body', {},
+        el('p.hint', 'A manager taps their name and types a PIN at the start of a shift. Their initials then fill in the checklists with one tap.')),
+      el('div.card-body.tight', {}, list),
+      el('div.card-body', {}, isOwner
+        ? inviteForm()
+        : el('p.hint', `New managers are invited by ${OWNER_EMAIL}.`)));
+  }
+
+  // -------------------------------------------------------------------- invite
+  // Owner only. Adds the manager with a PIN, then hands back a ready-to-send
+  // email (Gmail compose, or the device's mail app) with the link and PIN.
+  function inviteForm() {
     const nName = el('input', { placeholder: 'Full name' });
     const nInit = el('input', { placeholder: 'initials', maxLength: 4, style: 'max-width:110px;font-family:var(--mono)' });
-    const nPin = el('input', { placeholder: '4-digit PIN', inputMode: 'numeric', maxLength: 4, style: 'max-width:130px;font-family:var(--mono)' });
+    const nEmail = el('input', { type: 'email', placeholder: `name@${ALLOWED_DOMAIN}` });
+    const nPin = el('input', { value: randomPin(), inputMode: 'numeric', maxLength: 4, style: 'max-width:110px;font-family:var(--mono)' });
     const nAdmin = el('input', { type: 'checkbox' });
-    const addBtn = el('button.btn.btn-primary', { type: 'button' }, 'Add manager');
-    const addNote = el('span.progress');
+    const go = el('button.btn.btn-primary', { type: 'button' }, 'Invite manager');
+    const note = el('span.progress');
+    const result = el('div');
+
     nName.addEventListener('input', () => {
       if (!nInit.dataset.touched) {
         nInit.value = nName.value.trim().split(/\s+/).map((w) => w[0] ?? '').join('').toLowerCase().slice(0, 3);
       }
     });
     nInit.addEventListener('input', () => { nInit.dataset.touched = '1'; });
-    addBtn.addEventListener('click', async () => {
-      if (!nName.value.trim()) { addNote.textContent = 'Name required'; return; }
-      if (!/^\d{4}$/.test(nPin.value.trim())) { addNote.textContent = 'PIN must be four digits'; return; }
-      if (!nInit.value.trim()) { addNote.textContent = 'Initials required'; return; }
-      addBtn.disabled = true;
+
+    go.addEventListener('click', async () => {
+      const name = nName.value.trim();
+      const email = nEmail.value.trim().toLowerCase();
+      const pin = nPin.value.trim();
+      if (!name) { note.textContent = 'Name required'; return; }
+      if (!nInit.value.trim()) { note.textContent = 'Initials required'; return; }
+      if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) { note.textContent = `Needs an @${ALLOWED_DOMAIN} email — they sign in with it`; return; }
+      if (!/^\d{4}$/.test(pin)) { note.textContent = 'PIN must be four digits'; return; }
+      if (managers.some((m) => m.name.toLowerCase() === name.toLowerCase())) { note.textContent = `${name} is already a manager`; return; }
+
+      go.disabled = true;
+      note.textContent = 'Adding…';
       try {
-        await createManager({ name: nName.value, initials: nInit.value, pin: nPin.value.trim(), isAdmin: nAdmin.checked });
-        ctx.reloadRefs();
-        rerender();
-        return;
-      } catch (err) { addNote.textContent = err.message; }
-      addBtn.disabled = false;
+        await createManager({ name, initials: nInit.value, pin, isAdmin: nAdmin.checked });
+      } catch (err) { note.textContent = err.message; go.disabled = false; return; }
+      note.textContent = '';
+      ctx.reloadRefs();
+
+      const first = name.split(/\s+/)[0];
+      const subject = 'You\'re invited to the Toss manager sheet';
+      const body = [
+        `Hi ${first},`,
+        '',
+        'You now have access to the Toss manager sheet — safe counts, checklists and tips all live there now.',
+        '',
+        `1. Open ${SITE_URL} on your phone (add it to your home screen while you're there).`,
+        `2. Tap "Sign in with Google" and choose your ${email} account.`,
+        `3. Tap your name and enter your PIN: ${pin}`,
+        '',
+        'It remembers you on that phone after the first time. Keep the PIN to yourself — it is what puts your initials on the checklists.',
+        '',
+        'Justin',
+      ].join('\n');
+      const gmail = `https://mail.google.com/mail/?authuser=${encodeURIComponent(OWNER_EMAIL)}&view=cm&fs=1`
+        + `&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const mailto = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      const copyBtn = el('button.btn', { type: 'button' }, 'Copy message');
+      copyBtn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(body); copyBtn.textContent = 'Copied'; }
+        catch { copyBtn.textContent = 'Copy failed — select the text above'; }
+      });
+      const doneBtn = el('button.btn', { type: 'button' }, 'Done');
+      doneBtn.addEventListener('click', rerender);
+
+      clear(result).append(el('div.banner', { style: 'margin-top:14px;display:block' },
+        el('p', { style: 'margin:0 0 8px' }, `${name} is added. Send the invite:`),
+        el('pre', { style: 'white-space:pre-wrap;font-size:13px;margin:0 0 10px' }, body),
+        el('div.btn-row', {},
+          el('a.btn.btn-primary', { href: gmail, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Open in Gmail'),
+          el('a.btn', { href: mailto, style: 'text-decoration:none' }, 'Mail app'),
+          copyBtn, doneBtn)));
+      nName.value = ''; nInit.value = ''; delete nInit.dataset.touched;
+      nEmail.value = ''; nPin.value = randomPin(); nAdmin.checked = false;
+      go.disabled = false;
     });
 
-    return el('div.card', {},
-      el('div.card-head', {}, el('h2', 'Managers')),
-      el('div.card-body', {},
-        el('p.hint', 'A manager taps their name and types a PIN at the start of a shift. Their initials then fill in the checklists with one tap.')),
-      el('div.card-body.tight', {}, list),
-      el('div.card-body', {}, el('div.btn-row', {},
-        nName, nInit, nPin,
+    return el('div', {},
+      el('h3', { style: 'margin:0 0 8px;font-size:15px' }, 'Invite a manager'),
+      el('p.hint', `They sign in with their @${ALLOWED_DOMAIN} Google account, then tap their name and enter this PIN. The PIN is filled in for you; change it if you like.`),
+      el('div.btn-row', {},
+        nName, nInit, nEmail, nPin,
         el('label', { style: 'display:flex;gap:6px;align-items:center;font-size:13px' }, nAdmin, 'Admin'),
-        addBtn, addNote)));
+        go, note),
+      result);
   }
 
   // ---------------------------------------------------------------- checklists

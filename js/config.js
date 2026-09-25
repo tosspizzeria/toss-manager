@@ -16,3 +16,10 @@ export const SUPABASE = {
 // Google Workspace domain whose accounts may use the tool. schema.sql enforces
 // the same rule in the database; this copy is only for friendlier messages.
 export const ALLOWED_DOMAIN = 'tosspizzeria.com';
+
+// The one Google account allowed to invite new managers. schema.sql holds the
+// same address so the database refuses anyone else adding a manager.
+export const OWNER_EMAIL = 'justin@tosspizzeria.com';
+
+// Where invitees are sent.
+export const SITE_URL = 'https://manager.tosspizzeria.com';
