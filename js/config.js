@@ -9,8 +9,8 @@
 // Settings on each device (or to "this device only" mode if there is none).
 
 export const SUPABASE = {
-  url: '',
-  anonKey: '',
+  url: 'https://tenlvmamvbhoeeiigjqx.supabase.co',
+  anonKey: 'sb_publishable_uzPlTO-4eRvuyJVQRv0jiA_LUxQH4qH',
 };
 
 // Google Workspace domain whose accounts may use the tool. schema.sql enforces
