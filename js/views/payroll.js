@@ -205,7 +205,7 @@ export async function renderPayroll(ctx, weekStartParam) {
     missing.length
       ? el('div.banner.banner-info', {},
         el('span', `No sheet yet for ${missing.map(shortDate).join(', ')} — those nights count as $0 until they are filled in.`))
-      : null,
+      : '',
 
     el('div.card', {},
       el('div.card-head', {}, el('h2', 'Tip tracker'), el('span.spacer'),

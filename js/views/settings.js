@@ -402,6 +402,22 @@ export async function renderSettings(ctx) {
     const fileBtn = el('button.btn.btn-primary', { type: 'button' }, 'Import a file');
 
     async function applyImport(payload, label) {
+      // Checklist lines the file uses that this install does not have yet are
+      // added to the end of their list, so no recorded initials are dropped.
+      const keyOf = (t) => String(t ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let addedLines = 0;
+      for (const phase of ['open', 'close']) {
+        const current = (await store().listChecklist()).filter((i) => i.phase === phase);
+        const have = new Set(current.map((i) => keyOf(i.label)));
+        let order = Math.max(0, ...current.map((i) => i.sort_order ?? 0));
+        for (const item of (payload.checklist_items ?? []).filter((i) => i.phase === phase)) {
+          if (!item.label || have.has(keyOf(item.label))) continue;
+          await store().upsertChecklistItem({ id: uuid(), phase, label: item.label, active: true, sort_order: ++order });
+          have.add(keyOf(item.label));
+          addedLines++;
+        }
+      }
+
       const checklist = await store().listChecklist();
       // Punctuation-insensitive, so a comma added to a checklist line later
       // does not orphan the initials already recorded against it.
@@ -452,6 +468,7 @@ export async function renderSettings(ctx) {
       await ctx.reloadRefs();
       note.textContent = `${label}: ${days} night${days === 1 ? '' : 's'} imported`
         + (addedStaff ? `, ${addedStaff} added to the roster` : '')
+        + (addedLines ? `, ${addedLines} checklist line${addedLines === 1 ? '' : 's'} added` : '')
         + (unplaced.size
           ? `. Could not place ${[...unplaced].join(', ')} — add them under Staff and import again.`
           : '.');

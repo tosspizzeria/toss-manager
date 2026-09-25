@@ -97,6 +97,10 @@ export const NOTE_FIELDS = [
   { key: 'kitchen_recap', label: 'Kitchen recap' },
   { key: 'urgent', label: 'Urgent needs or 911 info' },
   { key: 'staffing', label: 'Staffing' },
+  { key: 'learned', label: 'What did we learn today' },
+  { key: 'uber', label: 'Uber issues' },
+  { key: 'payout_detail', label: 'Payout detail' },
+  { key: 'additional', label: 'Additional notes' },
 ];
 
 export function blankSheet(businessDate) {
