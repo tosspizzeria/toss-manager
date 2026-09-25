@@ -11,6 +11,7 @@
 
 import { uuid } from './util.js';
 import { createRest } from './supabase.js';
+import { SUPABASE } from './config.js';
 
 const CFG_KEY = 'toss.supabase';
 const LOCAL_KEY = 'toss.local.v1';
@@ -128,6 +129,9 @@ export function blankSheet(businessDate) {
 // project keys and each device can be pointed at a project independently.
 // ---------------------------------------------------------------------------
 export function getConnection() {
+  if (SUPABASE.url && SUPABASE.anonKey) {
+    return { url: SUPABASE.url.replace(/\/+$/, ''), anonKey: SUPABASE.anonKey, builtIn: true };
+  }
   try {
     const raw = localStorage.getItem(CFG_KEY);
     if (!raw) return null;

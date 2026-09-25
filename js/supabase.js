@@ -6,6 +6,18 @@
 // has no external JavaScript at all and works from any static host.
 
 const SESSION_KEY = 'toss.auth';
+const PKCE_KEY = 'toss.pkce';
+
+function randomString(len) {
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  return Array.from(bytes, (b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b % 66]).join('');
+}
+
+async function pkceChallenge(verifier) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 export function createRest(url, anonKey) {
   const base = url.replace(/\/+$/, '');
@@ -60,7 +72,7 @@ export function createRest(url, anonKey) {
 
   async function rest(method, table, { params = '', body, prefer } = {}) {
     const token = await freshToken();
-    if (!token) throw new Error('This device is not paired — sign in under Settings.');
+    if (!token) throw new Error('Not signed in — sign in with your Toss Google account.');
     const headers = {
       apikey: anonKey,
       Authorization: `Bearer ${token}`,
@@ -89,6 +101,36 @@ export function createRest(url, anonKey) {
     hasSession() { return Boolean(session?.refresh_token); },
 
     async signIn(email, password) { await tokenRequest('password', { email, password }); },
+
+    /**
+     * Send the browser to Google through Supabase Auth (PKCE flow). Google
+     * sends it back to `redirectTo?code=…`, which finishOAuth() exchanges.
+     * `hd` asks Google to show only accounts on that Workspace domain; the
+     * database enforces the domain regardless.
+     */
+    async signInWithGoogle(redirectTo, { hd } = {}) {
+      const verifier = randomString(64);
+      localStorage.setItem(PKCE_KEY, verifier);
+      const challenge = await pkceChallenge(verifier);
+      const q = new URLSearchParams({
+        provider: 'google',
+        redirect_to: redirectTo,
+        code_challenge: challenge,
+        code_challenge_method: 's256',
+        prompt: 'select_account',
+      });
+      if (hd) q.set('hd', hd);
+      location.assign(`${base}/auth/v1/authorize?${q}`);
+    },
+
+    /** Trade the ?code= Google sent back for a session. */
+    async finishOAuth(code) {
+      const verifier = localStorage.getItem(PKCE_KEY);
+      localStorage.removeItem(PKCE_KEY);
+      if (!verifier) throw new Error('Sign-in expired — please try again.');
+      await tokenRequest('pkce', { auth_code: code, code_verifier: verifier });
+      return session;
+    },
 
     async signOut() {
       const token = session?.access_token;

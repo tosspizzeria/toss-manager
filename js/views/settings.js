@@ -6,7 +6,7 @@ import { el, clear, uuid } from '../util.js';
 import { DEFAULT_FAVORITES } from '../games.js';
 import { matchStaff } from '../roster-match.js';
 import { store, isCloud, getConnection, setConnection, clearConnection, SETTINGS_SEED } from '../store.js';
-import { createManager, setManagerPin, pairDevice, unpairDevice, pairedAs, isPaired } from '../auth.js';
+import { createManager, setManagerPin, signOutGoogle, signedInAs } from '../auth.js';
 
 export async function renderSettings(ctx) {
   const root = clear(ctx.root);
@@ -14,8 +14,7 @@ export async function renderSettings(ctx) {
 
   const [managers, checklist] = await Promise.all([store().listManagers(), store().listChecklist()]);
   const conn = getConnection();
-  const paired = await isPaired();
-  const pairedEmail = await pairedAs();
+  const signedInEmail = await signedInAs();
   const rerender = () => renderSettings(ctx);
 
   // ---------------------------------------------------------------- connection
@@ -36,41 +35,30 @@ export async function renderSettings(ctx) {
       location.reload();
     });
 
-    const body = el('div.card-body', {},
-      el('p.hint', isCloud()
-        ? 'Connected to Supabase. Every device pointed at this project sees the same sheets.'
-        : 'Running on this device only — sheets are kept in this browser and nobody else can see them. Paste a Supabase URL and anon key to share them across devices. Setup steps are in SETUP.md.'),
-      el('div.field', {}, el('label', 'Supabase project URL'), urlInput),
-      el('div.field', {}, el('label', 'Supabase anon key'), keyInput),
-      note,
-      el('div.btn-row', {}, saveBtn, conn ? dropBtn : null));
+    const body = conn?.builtIn
+      ? el('div.card-body', {},
+        el('p.hint', 'Connected to the Toss database. Every signed-in manager on every device sees the same sheets.'))
+      : el('div.card-body', {},
+        el('p.hint', isCloud()
+          ? 'Connected to Supabase. Every device pointed at this project sees the same sheets.'
+          : 'Running on this device only — sheets are kept in this browser and nobody else can see them. Paste a Supabase URL and anon key to share them across devices. Setup steps are in SETUP.md.'),
+        el('div.field', {}, el('label', 'Supabase project URL'), urlInput),
+        el('div.field', {}, el('label', 'Supabase anon key'), keyInput),
+        note,
+        el('div.btn-row', {}, saveBtn, conn ? dropBtn : null));
 
-    // Device pairing — one restaurant login per device, then PINs day to day.
+    // Google account — who this device is signed in as.
     if (isCloud()) {
-      const email = el('input', { type: 'email', placeholder: 'the restaurant login email' });
-      const pass = el('input', { type: 'password', placeholder: 'password' });
-      const pairNote = el('p.hint');
-      const pairBtn = el('button.btn.btn-primary', { type: 'button' }, 'Pair this device');
-      pairBtn.addEventListener('click', async () => {
-        pairBtn.disabled = true;
-        pairNote.textContent = 'Signing in…';
-        try { await pairDevice(email.value, pass.value); location.reload(); }
-        catch (err) { pairNote.textContent = err.message; pairBtn.disabled = false; }
+      const outBtn = el('button.btn.btn-danger', { type: 'button' }, 'Sign out of Google on this device');
+      outBtn.addEventListener('click', async () => {
+        if (!confirm('Sign out on this device? You will need your Google account to get back in.')) return;
+        await signOutGoogle();
+        location.reload();
       });
-      const unpairBtn = el('button.btn.btn-danger', { type: 'button' }, 'Unpair');
-      unpairBtn.addEventListener('click', async () => { await unpairDevice(); location.reload(); });
-
-      body.append(el('hr', { style: 'border:0;border-top:1px solid var(--border);margin:18px 0' }));
-      if (paired) {
-        body.append(el('p.hint', `This device is paired as ${pairedEmail}. Managers sign in with their PIN from here on.`),
-          el('div.btn-row', {}, unpairBtn));
-      } else {
-        body.append(
-          el('p.hint', 'This device is not paired yet. Sign in once with the restaurant login and it stays signed in.'),
-          el('div.field', {}, el('label', 'Email'), email),
-          el('div.field', {}, el('label', 'Password'), pass),
-          pairNote, el('div.btn-row', {}, pairBtn));
-      }
+      body.append(
+        el('hr', { style: 'border:0;border-top:1px solid var(--border);margin:18px 0' }),
+        el('p.hint', `Signed in with Google as ${signedInEmail ?? 'unknown'}. Anyone with a tosspizzeria.com Google account can sign in. To remove someone, suspend them in Google Workspace and delete them under Supabase → Authentication → Users.`),
+        el('div.btn-row', {}, outBtn));
     }
 
     return el('div.card', {},

@@ -49,33 +49,59 @@ restaurant.
 
 Re-running it later is safe — it will not duplicate or wipe anything.
 
-### 2.3 Create the restaurant login
+### 2.3 Make the Google sign-in app (Google Cloud, about 5 minutes)
 
-This is the one account each device signs in with once. Managers never type it
-after setup; they use their PIN.
+Do this signed in to Google as a tosspizzeria.com Workspace admin.
 
-1. **Authentication** → **Users** → **Add user** → **Create new user**.
-2. Email: something you control, e.g. `manager@tosspizzeria.com`.
-   Password: long and random, saved in your password manager.
-3. Tick **Auto Confirm User** so it works without an email round trip.
+1. Go to <https://console.cloud.google.com> → project picker → **New project**,
+   name it `toss-manager`.
+2. **APIs & Services** → **OAuth consent screen** (may be labelled **Google
+   Auth Platform** → **Branding** / **Audience**):
+   - App name `Toss Manager Sheet`, support email your own.
+   - User type / Audience: **Internal**. This is the setting that blocks every
+     account outside tosspizzeria.com at Google's end.
+3. **APIs & Services** → **Credentials** → **Create credentials** → **OAuth
+   client ID** → **Web application**.
+   - Authorized JavaScript origins: `https://manager.tosspizzeria.com`
+   - Authorized redirect URIs: `https://<your-project>.supabase.co/auth/v1/callback`
+     (Supabase shows the exact URL on its Google provider page — copy it from
+     there.)
+4. Create, and keep the **Client ID** and **Client secret** handy.
 
-### 2.4 Point the tool at it
+### 2.4 Turn on Google in Supabase
 
-1. **Project Settings** → **API**. Copy:
-   - **Project URL** (looks like `https://abcdefgh.supabase.co`)
-   - **anon** / **public** key (the long one labelled `anon`, *not* `service_role`)
-2. Open the tool → **Settings** → **Where the data lives**. Paste both, hit
-   **Connect**. The page reloads.
-3. Still in Settings, under **Pair this device**, sign in with the email and
-   password from 2.3.
-4. Add your managers (name, initials, 4-digit PIN) and your staff roster.
+1. **Authentication** → **Sign In / Providers** → **Google** → enable, paste
+   the Client ID and Client secret, save.
+2. Same page: turn **Email** sign-in **off**, and turn off **Allow new users to
+   sign up** for email if it is shown. (The database refuses password accounts
+   anyway; this just removes the option.)
+3. **Authentication** → **URL Configuration**:
+   - Site URL: `https://manager.tosspizzeria.com`
+   - Redirect URLs: add `https://manager.tosspizzeria.com/**`
 
-Repeat step 3 on each tablet or phone. Each device pairs once and stays paired.
+### 2.5 Point the tool at it
+
+1. **Project Settings** → **API** (or **Data API**). Copy the **Project URL**
+   and the **anon** / **public** key (*not* `service_role`).
+2. Put both in `js/config.js` and push. Every device then connects on its own —
+   nobody pastes anything.
+3. Open <https://manager.tosspizzeria.com>, **Sign in with Google**, and set
+   yourself up as the first manager (name, initials, PIN). Add the other
+   managers and the staff roster under **Settings** / **Staff**.
+
+Managers just open the link and sign in with their own tosspizzeria.com Google
+account; each device remembers them. The PIN still picks who is on shift, so a
+shared bar tablet can stay signed in while managers swap with their PIN.
+
+**Removing someone:** two steps. Suspend or delete them in Google Workspace so
+they cannot sign in again, **and** delete them in Supabase → **Authentication**
+→ **Users** so a phone that is already signed in is cut off too (Supabase does
+not re-check Google on its own; its sessions stay alive until deleted).
 
 > The anon key is designed to be public — it identifies the project, it does not
 > grant access. Row level security is what protects the data: every table
-> requires a signed-in user, so an unpaired device gets nothing back. Never put
-> the **service_role** key anywhere near this app.
+> requires a Google sign-in on a tosspizzeria.com address (`is_toss_manager()`
+> in `schema.sql`). Never put the **service_role** key anywhere near this app.
 
 ---
 

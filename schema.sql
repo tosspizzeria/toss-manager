@@ -141,8 +141,16 @@ create table if not exists payroll_weeks (
 -- ---------------------------------------------------------------------------
 -- Row level security. The site ships a public anon key, so RLS is the only
 -- thing standing between your sales numbers and the open internet: every
--- policy below requires a signed-in Supabase user.
+-- policy below requires someone signed in with Google using a
+-- @tosspizzeria.com account. A password account with a tosspizzeria.com
+-- address is refused too, so nobody can sign up their way in.
 -- ---------------------------------------------------------------------------
+create or replace function public.is_toss_manager() returns boolean
+language sql stable as $$
+  select lower(coalesce(auth.jwt() ->> 'email', '')) like '%@tosspizzeria.com'
+     and coalesce(auth.jwt() -> 'app_metadata' -> 'providers', '[]'::jsonb) ? 'google'
+$$;
+
 alter table managers        enable row level security;
 alter table staff           enable row level security;
 alter table checklist_items enable row level security;
@@ -157,7 +165,7 @@ begin
   loop
     execute format('drop policy if exists %I on %I', t || '_authenticated', t);
     execute format(
-      'create policy %I on %I for all to authenticated using (true) with check (true)',
+      'create policy %I on %I for all to authenticated using (public.is_toss_manager()) with check (public.is_toss_manager())',
       t || '_authenticated', t
     );
   end loop;

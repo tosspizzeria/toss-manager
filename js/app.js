@@ -11,8 +11,14 @@
 //   #/settings            managers, checklists, numbers, connection
 
 import { el, clear, todayISO, monthOf, mondayOf, parseDateQuery } from './util.js';
-import { initStore, store, isCloud, SETTINGS_SEED } from './store.js';
-import { currentManager, clearShift, signInManager, isPaired, createManager } from './auth.js';
+import { initStore, store, isCloud, getConnection, clearConnection, SETTINGS_SEED } from './store.js';
+import {
+  currentManager, clearShift, signInManager, isSignedIn, createManager,
+  signInWithGoogle, completeGoogleSignIn,
+} from './auth.js';
+import { ALLOWED_DOMAIN } from './config.js';
+
+let signInProblem = null;   // shown on the Google gate after a failed return trip
 import { renderDay } from './views/day.js';
 import { renderMonth, renderHome } from './views/month.js';
 import { renderPayroll } from './views/payroll.js';
@@ -190,12 +196,30 @@ function pinEntry(manager) {
   pin.focus();
 }
 
-async function pairGate() {
-  gate('This device is not paired yet',
-    el('div', {},
-      el('p.hint', 'The database refuses requests from an unpaired device, which is what keeps your numbers off the open internet. Pair once with the restaurant login and it stays paired.'),
-      el('a.btn.btn-primary', { href: '#/settings', style: 'display:inline-block;margin-top:10px' }, 'Open settings to pair')),
-    'One-time setup.');
+async function googleGate() {
+  const err = el('p.err', signInProblem ?? '');
+  const go = el('button.btn.btn-primary', { type: 'button', style: 'width:100%;margin-top:6px' }, 'Sign in with Google');
+  go.addEventListener('click', async () => {
+    go.disabled = true;
+    try { await signInWithGoogle(); }
+    catch (e) { err.textContent = e.message; go.disabled = false; }
+  });
+  // A connection typed in on this device (rather than built into the site)
+  // could be wrong; give a way back out rather than a dead end.
+  let escape = null;
+  if (!getConnection()?.builtIn) {
+    escape = el('button.btn.btn-sm', { type: 'button', style: 'margin-top:10px' }, 'Disconnect this device from the database');
+    escape.addEventListener('click', () => {
+      if (!confirm('Disconnect this device? Nothing in the database is deleted.')) return;
+      clearConnection();
+      location.reload();
+    });
+  }
+  gate('Sign in',
+    el('div', {}, go, err, escape,
+      el('p.hint', { style: 'margin-top:14px' },
+        `Use your @${ALLOWED_DOMAIN} Google account. You stay signed in on this device.`)),
+    'Toss managers only.');
 }
 
 // ----------------------------------------------------------------------- router
@@ -205,10 +229,11 @@ async function route() {
 
   renderChrome();
 
-  // Settings must stay reachable — it is where you pair and connect.
-  if (section === 'settings') return renderSettings(ctx);
+  const signedIn = !isCloud() || (await isSignedIn());
+  if (!signedIn) return googleGate();
 
-  if (isCloud() && !(await isPaired())) return pairGate();
+  // Settings stays reachable before a PIN — it is where the connection lives.
+  if (section === 'settings') return renderSettings(ctx);
   if (!ctx.manager) return pinGate();
 
   try {
@@ -230,7 +255,9 @@ async function route() {
 (async function boot() {
   try {
     await initStore();
-    await reloadRefs();
+    const back = await completeGoogleSignIn();
+    if (back && !back.ok) signInProblem = back.message;
+    if (!isCloud() || (await isSignedIn())) await reloadRefs();
   } catch (err) {
     clear(view).append(el('div.banner.banner-bad', {},
       el('span', `Could not reach the database: ${err.message}`),
