@@ -93,14 +93,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
   flex-wrap: wrap;
 }
 
-.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
-.brand-mark {
-  font-weight: 800;
-  font-size: 20px;
-  letter-spacing: .14em;
-  color: var(--tomato);
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.brand-logo { display: block; line-height: 0; }
+.brand-logo img { height: 64px; width: auto; }
+.logo-on-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .logo-on-light { display: none; }
+  .logo-on-dark { display: block; }
 }
-.brand-sub { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); }
+.brand-sub {
+  font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim);
+  padding-left: 12px; border-left: 1px solid var(--border);
+}
+@media (max-width: 640px) { .brand-logo img { height: 50px; } }
 
 .nav { display: flex; gap: 2px; flex-wrap: wrap; }
 .nav a {
