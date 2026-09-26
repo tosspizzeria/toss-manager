@@ -90,7 +90,7 @@ function renderChrome() {
   bar.append(
     el('div.brand', {},
       el('a.brand-logo', { href: '#/', title: 'Toss Pizzeria & Pub' },
-        el('img.logo-on-light', { src: 'img/toss-logo-dark.png', alt: 'Toss Pizzeria & Pub', width: 82, height: 56 }),
+        el('img.logo-on-light', { src: 'img/toss-logo-red.png', alt: 'Toss Pizzeria & Pub', width: 82, height: 56 }),
         el('img.logo-on-dark', { src: 'img/toss-logo-white.png', alt: '', width: 82, height: 56 })),
       el('span.brand-sub', `${ctx.settings.location_name ?? 'South 1st'} · Manager Sheet`)),
     el('nav.nav', {},
