@@ -77,12 +77,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--char);
-  color: var(--crust);
+  background: var(--surface);
+  color: var(--text);
   border-bottom: 3px solid var(--tomato);
+  box-shadow: 0 1px 2px rgba(36, 31, 28, .05), 0 6px 18px rgba(36, 31, 28, .06);
 }
-
-@media (prefers-color-scheme: dark) { .topbar { background: #100e0b; } }
 
 .topbar-inner {
   max-width: 1240px;
@@ -99,13 +98,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-weight: 800;
   font-size: 20px;
   letter-spacing: .14em;
-  color: #fff;
+  color: var(--tomato);
 }
-.brand-sub { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #b6a98f; }
+.brand-sub { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); }
 
 .nav { display: flex; gap: 2px; flex-wrap: wrap; }
 .nav a {
-  color: #cabca0;
+  color: var(--text-dim);
   text-decoration: none;
   padding: 7px 13px;
   border-radius: 999px;
@@ -113,33 +112,47 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-weight: 500;
   white-space: nowrap;
 }
-.nav a:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.nav a:hover { background: var(--surface-3); color: var(--text); }
 .nav a.active { background: var(--tomato); color: #fff; }
+
+.topbar-search {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 14px;
+  min-width: 210px;
+  font-size: 14px;
+}
+.topbar-search::placeholder { color: var(--text-faint); }
+.topbar-search:focus { outline: none; border-color: var(--tomato); background: var(--surface); }
+.topbar-search.invalid { border-color: var(--bad); }
 
 .whoami {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #b6a98f;
+  color: var(--text-dim);
 }
 .whoami .chip {
-  background: rgba(255, 255, 255, .1);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 11px;
-  color: #fff;
+  color: var(--text);
   font-weight: 600;
 }
 .whoami button {
   background: none;
-  border: 1px solid rgba(255, 255, 255, .22);
-  color: #cabca0;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
   border-radius: 999px;
   padding: 4px 11px;
   cursor: pointer;
   font-size: 12px;
 }
-.whoami button:hover { border-color: #fff; color: #fff; }
+.whoami button:hover { border-color: var(--tomato); color: var(--tomato); }
 
 main { max-width: 1240px; margin: 0 auto; padding: 18px 16px 80px; }
 
@@ -627,3 +640,5 @@ main { max-width: 1240px; margin: 0 auto; padding: 18px 16px 80px; }
   .game-row { flex-wrap: wrap; gap: 7px 10px; }
   .game-row .who { flex-basis: 100%; order: 3; }
 }
+
+a.btn { text-decoration: none; display: inline-block; }

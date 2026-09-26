@@ -72,14 +72,14 @@ function renderChrome() {
   const search = el('input', {
     type: 'search',
     placeholder: 'Jump to a date — 8/22, aug 22, yesterday',
-    style: 'border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;border-radius:999px;padding:7px 14px;min-width:210px;font-size:14px',
+    class: 'topbar-search',
   });
   search.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     const date = parseDateQuery(search.value);
     if (!date) {
-      search.style.borderColor = '#ef7b6f';
-      setTimeout(() => { search.style.borderColor = 'rgba(255,255,255,.22)'; }, 1200);
+      search.classList.add('invalid');
+      setTimeout(() => { search.classList.remove('invalid'); }, 1200);
       return;
     }
     search.value = '';
